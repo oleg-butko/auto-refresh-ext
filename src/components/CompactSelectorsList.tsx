@@ -1,4 +1,4 @@
-﻿import { AutoClickerSettings } from '../types'
+import { AutoClickerSettings } from '../types'
 import { Dropdown } from './Dropdown'
 
 interface SelectorsListProps {
@@ -36,6 +36,15 @@ export function CompactSelectorsList({
 		}
 		return false
 	}
+	const onRemoveValue = (valueToRemove: string) => {
+		onSettingsChange({
+			...settings,
+			savedQuerySelectors: settings.savedQuerySelectors.filter(
+				(selector) => selector !== valueToRemove
+			),
+			querySelector: settings.querySelector === valueToRemove ? '' : settings.querySelector
+		})
+	}
 	return (
 		<Dropdown
 			label={'Button Selector'}
@@ -44,6 +53,7 @@ export function CompactSelectorsList({
 			arrValues={arrValues}
 			onNewValue={onNewValue}
 			onChangeSelected={onChangeSelected}
+			onRemoveValue={onRemoveValue}
 			disabled={!settings.enabled}
 			maxHeight={maxHeight}></Dropdown>
 	)
