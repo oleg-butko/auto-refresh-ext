@@ -21,6 +21,7 @@ export interface KeywordsSettings {
 
 export interface AutoClickerSettings {
 	enabled: boolean
+	// xpath: string
 	querySelector: string
 	savedQuerySelectors: string[]
 	numClicks: number
@@ -33,19 +34,4 @@ export interface ExtensionSettings {
 	autoRefresh: AutoRefreshSettings
 	keywords: KeywordsSettings
 	autoClicker: AutoClickerSettings
-}
-
-export interface PresetSettings extends ExtensionSettings {
-	presetId: string
-}
-
-export interface TabPresetMapping {
-	[tabId: number]: string
-}
-
-export interface GlobalSettings {
-	presets: {
-		[presetId: string]: PresetSettings
-	}
-	tabPresetMapping: TabPresetMapping
 }

@@ -8,10 +8,9 @@ import {
 	Stack,
 	ScrollArea,
 	Text,
-	useCombobox,
-	ActionIcon
+	useCombobox
 } from '@mantine/core'
-import { IconArrowBadgeDown, IconPlus, IconX } from '@tabler/icons-react'
+import { IconArrowBadgeDown, IconPlus } from '@tabler/icons-react'
 
 interface DropdownProps {
 	label: string
@@ -20,7 +19,6 @@ interface DropdownProps {
 	arrValues: string[]
 	onNewValue: (val: string) => boolean
 	onChangeSelected: (val: string) => void
-	onRemoveValue?: (val: string) => void
 	disabled?: boolean
 	maxHeight?: number
 }
@@ -32,7 +30,6 @@ export function Dropdown({
 	arrValues,
 	onNewValue,
 	onChangeSelected,
-	onRemoveValue,
 	disabled,
 	maxHeight = 200
 }: DropdownProps) {
@@ -58,32 +55,13 @@ export function Dropdown({
 		setDisabledComboBox(disabled)
 	}, [disabled])
 	//
-	const handleRemoveItem = (itemToRemove: string, e: React.MouseEvent) => {
-		e.stopPropagation()
-		if (onRemoveValue) {
-			onRemoveValue(itemToRemove)
-			if (inputValue === itemToRemove) {
-				setInputValue('')
-			}
-		}
-	}
-
 	const options = arrValues.map((item, index) => (
 		<Combobox.Option
 			value={item}
 			key={index}
 			selected={item === inputValue}>
 			<Group justify='space-between'>
-				<Text style={{ flex: 1 }}>{item}</Text>
-				{onRemoveValue && (
-					<ActionIcon
-						size='xs'
-						variant='subtle'
-						color='red'
-						onClick={(e) => handleRemoveItem(item, e)}>
-						<IconX size={12} />
-					</ActionIcon>
-				)}
+				<Text>{item}</Text>
 			</Group>
 		</Combobox.Option>
 	))

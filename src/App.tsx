@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react'
-import { MantineProvider, Tabs, Container, Stack } from '@mantine/core'
+import { MantineProvider, Tabs, Container } from '@mantine/core'
 import { AutoRefreshTab } from './components/AutoRefreshTab'
 import { KeywordsTab } from './components/KeywordsTab'
 import { AutoClickerTab } from './components/AutoClickerTab'
-import { PresetsSelector } from './components/PresetsSelector'
-import { ExtensionSettings, GlobalSettings, PresetSettings } from './types'
+import { ExtensionSettings } from './types'
 import '@mantine/core/styles.css'
 
-const createDefaultSettings = (presetId: string): PresetSettings => ({
-	presetId,
+const defaultSettings: ExtensionSettings = {
 	numRefreshCalled: 0,
 	lastTab: 'refresh',
 	autoRefresh: {
@@ -32,86 +30,32 @@ const createDefaultSettings = (presetId: string): PresetSettings => ({
 		querySelector: '',
 		savedQuerySelectors: []
 	}
-})
-
-const createDefaultGlobalSettings = (): GlobalSettings => ({
-	presets: {
-		preset_1: createDefaultSettings('preset_1'),
-		preset_2: createDefaultSettings('preset_2'),
-		preset_3: createDefaultSettings('preset_3'),
-		preset_4: createDefaultSettings('preset_4'),
-		preset_5: createDefaultSettings('preset_5'),
-		preset_6: createDefaultSettings('preset_6')
-	},
-	tabPresetMapping: {}
-})
-const settingsMigration = (settings: PresetSettings, presetId: string): PresetSettings => {
-	const defaultPreset = createDefaultSettings(presetId)
+}
+const settingsMigration = (settings: ExtensionSettings) => {
 	if (settings.keywords) {
 		if (typeof settings.keywords.soundItems === 'undefined') {
-			settings.keywords.soundItems = defaultPreset.keywords.soundItems
+			settings.keywords.soundItems = defaultSettings.keywords.soundItems
 		}
 		if (typeof settings.keywords.selectedSoundItem === 'undefined') {
-			settings.keywords.selectedSoundItem = defaultPreset.keywords.selectedSoundItem
+			settings.keywords.selectedSoundItem =
+				defaultSettings.keywords.selectedSoundItem
 		}
-	}
-	if (!settings.presetId) {
-		settings.presetId = presetId
 	}
 	return settings
 }
 
-const migrateOldSettings = (oldSettings: ExtensionSettings): GlobalSettings => {
-	const globalSettings = createDefaultGlobalSettings()
-	const migratedPreset = {
-		...oldSettings,
-		presetId: 'preset_1'
-	} as PresetSettings
-	globalSettings.presets.preset_1 = settingsMigration(migratedPreset, 'preset_1')
-	return globalSettings
-}
-
 function App() {
-	const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(createDefaultGlobalSettings())
-	const [currentTabId, setCurrentTabId] = useState<number>(0)
-	const [currentPresetId, setCurrentPresetId] = useState<string>('preset_1')
-	const [settings, setSettings] = useState<PresetSettings>(createDefaultSettings('preset_1'))
+	const [settings, setSettings] = useState<ExtensionSettings>(defaultSettings)
 	const [curTab, setCurTab] = useState<string>('refresh')
 
 	useEffect(() => {
-		chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-			if (tabs[0]?.id) {
-				setCurrentTabId(tabs[0].id)
+		chrome.storage.local.get('settings', (result) => {
+			// debugger
+			if (result.settings) {
+				setSettings(settingsMigration(result.settings))
 			}
 		})
 	}, [])
-
-	useEffect(() => {
-		chrome.storage.local.get(['globalSettings', 'settings'], (result) => {
-			let loadedGlobalSettings: GlobalSettings
-
-			if (result.globalSettings) {
-				loadedGlobalSettings = result.globalSettings
-			} else if (result.settings) {
-				loadedGlobalSettings = migrateOldSettings(result.settings)
-				chrome.storage.local.set({ globalSettings: loadedGlobalSettings })
-				chrome.storage.local.remove('settings')
-			} else {
-				loadedGlobalSettings = createDefaultGlobalSettings()
-			}
-
-			setGlobalSettings(loadedGlobalSettings)
-
-			if (currentTabId) {
-				const presetId = loadedGlobalSettings.tabPresetMapping[currentTabId] || 'preset_1'
-				setCurrentPresetId(presetId)
-				const preset = loadedGlobalSettings.presets[presetId]
-				if (preset) {
-					setSettings(preset)
-				}
-			}
-		})
-	}, [currentTabId])
 
 	useEffect(() => {
 		if (settings.lastTab) {
@@ -119,39 +63,9 @@ function App() {
 		}
 	}, [curTab, settings.lastTab])
 
-	const updateSettings = (newSettings: PresetSettings) => {
+	const updateSettings = (newSettings: ExtensionSettings) => {
 		setSettings(newSettings)
-		const updatedGlobalSettings = {
-			...globalSettings,
-			presets: {
-				...globalSettings.presets,
-				[currentPresetId]: newSettings
-			}
-		}
-		setGlobalSettings(updatedGlobalSettings)
-		chrome.storage.local.set({ globalSettings: updatedGlobalSettings })
-	}
-
-	const handlePresetChange = (presetId: string) => {
-		setCurrentPresetId(presetId)
-		const newPreset = globalSettings.presets[presetId]
-		setSettings(newPreset)
-
-		const updatedGlobalSettings = {
-			...globalSettings,
-			tabPresetMapping: {
-				...globalSettings.tabPresetMapping,
-				[currentTabId]: presetId
-			}
-		}
-		setGlobalSettings(updatedGlobalSettings)
-		chrome.storage.local.set({ globalSettings: updatedGlobalSettings })
-
-		chrome.runtime.sendMessage({
-			action: 'preset-changed',
-			tabId: currentTabId,
-			presetId
-		})
+		chrome.storage.local.set({ settings: newSettings })
 	}
 
 	const handleToggleStart = async () => {
@@ -181,12 +95,7 @@ function App() {
 	return (
 		<MantineProvider>
 			<Container size='sm' p='md' style={{ width: 400 }}>
-				<Stack gap='md'>
-					<PresetsSelector
-						value={currentPresetId}
-						onChange={handlePresetChange}
-					/>
-					<Tabs
+				<Tabs
 					value={curTab}
 					onChange={(value) => {
 						if (value) {
@@ -227,7 +136,6 @@ function App() {
 						/>
 					</Tabs.Panel>
 				</Tabs>
-				</Stack>
 			</Container>
 		</MantineProvider>
 	)
