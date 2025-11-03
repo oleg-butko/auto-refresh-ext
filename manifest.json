@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Auto Refresh",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Automatically refresh tabs with keyword detection and auto-click functionality",
   "permissions": [
     "activeTab",
@@ -30,7 +30,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["icon.png", "icons/*.png"],
+      "resources": ["icon.png"],
       "matches": ["<all_urls>"]
     }
   ],

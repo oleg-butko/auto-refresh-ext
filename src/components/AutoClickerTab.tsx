@@ -29,6 +29,7 @@ export function AutoClickerTab({
 				<Group grow>
 					<Text size='sm'>Pause Between Clicks (ms)</Text>
 					<NumberInput
+						allowNegative={false}
 						maw={90}
 						value={settings.delay}
 						onChange={(value) =>
@@ -46,6 +47,7 @@ export function AutoClickerTab({
 				<Group grow>
 					<Text size='sm'>Number of Clicks</Text>
 					<NumberInput
+						allowNegative={false}
 						maw={90}
 						value={settings.numClicks}
 						onChange={(value) =>

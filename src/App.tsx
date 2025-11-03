@@ -45,14 +45,18 @@ const createDefaultGlobalSettings = (): GlobalSettings => ({
 	},
 	tabPresetMapping: {}
 })
-const settingsMigration = (settings: PresetSettings, presetId: string): PresetSettings => {
+const settingsMigration = (
+	settings: PresetSettings,
+	presetId: string
+): PresetSettings => {
 	const defaultPreset = createDefaultSettings(presetId)
 	if (settings.keywords) {
 		if (typeof settings.keywords.soundItems === 'undefined') {
 			settings.keywords.soundItems = defaultPreset.keywords.soundItems
 		}
 		if (typeof settings.keywords.selectedSoundItem === 'undefined') {
-			settings.keywords.selectedSoundItem = defaultPreset.keywords.selectedSoundItem
+			settings.keywords.selectedSoundItem =
+				defaultPreset.keywords.selectedSoundItem
 		}
 	}
 	if (!settings.presetId) {
@@ -67,15 +71,22 @@ const migrateOldSettings = (oldSettings: ExtensionSettings): GlobalSettings => {
 		...oldSettings,
 		presetId: 'preset_1'
 	} as PresetSettings
-	globalSettings.presets.preset_1 = settingsMigration(migratedPreset, 'preset_1')
+	globalSettings.presets.preset_1 = settingsMigration(
+		migratedPreset,
+		'preset_1'
+	)
 	return globalSettings
 }
 
 function App() {
-	const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(createDefaultGlobalSettings())
+	const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(
+		createDefaultGlobalSettings()
+	)
 	const [currentTabId, setCurrentTabId] = useState<number>(0)
-	const [currentPresetId, setCurrentPresetId] = useState<string>('preset_1')
-	const [settings, setSettings] = useState<PresetSettings>(createDefaultSettings('preset_1'))
+	const [currentPresetId, setCurrentPresetId] = useState<string>('none') // preset_1
+	const [settings, setSettings] = useState<PresetSettings>(
+		createDefaultSettings('preset_1')
+	)
 	const [curTab, setCurTab] = useState<string>('refresh')
 
 	useEffect(() => {
@@ -89,12 +100,13 @@ function App() {
 	useEffect(() => {
 		chrome.storage.local.get(['globalSettings', 'settings'], (result) => {
 			let loadedGlobalSettings: GlobalSettings
-
 			if (result.globalSettings) {
 				loadedGlobalSettings = result.globalSettings
 			} else if (result.settings) {
 				loadedGlobalSettings = migrateOldSettings(result.settings)
-				chrome.storage.local.set({ globalSettings: loadedGlobalSettings })
+				chrome.storage.local.set({
+					globalSettings: loadedGlobalSettings
+				})
 				chrome.storage.local.remove('settings')
 			} else {
 				loadedGlobalSettings = createDefaultGlobalSettings()
@@ -103,7 +115,10 @@ function App() {
 			setGlobalSettings(loadedGlobalSettings)
 
 			if (currentTabId) {
-				const presetId = loadedGlobalSettings.tabPresetMapping[currentTabId] || 'preset_1'
+				const presetId =
+					loadedGlobalSettings.tabPresetMapping[currentTabId] ||
+					'none'
+				// 'preset_1'
 				setCurrentPresetId(presetId)
 				const preset = loadedGlobalSettings.presets[presetId]
 				if (preset) {
@@ -133,10 +148,31 @@ function App() {
 	}
 
 	const handlePresetChange = (presetId: string) => {
+		// globalSettings.tabPresetMapping: {
+		//     [currentTabId]: presetId
+		// const tabIds = Object.keys(globalSettings.tabPresetMapping)
+		// const presets = Object.values(globalSettings.tabPresetMapping)
+		let foundTabId = 0
+		if (presetId !== 'none') {
+			const tab2presets = Object.entries(globalSettings.tabPresetMapping)
+			for (const arr of tab2presets) {
+				if (arr[1] === presetId) {
+					foundTabId = parseInt(arr[0], 10)
+					break
+				}
+			}
+		}
+		if (foundTabId) {
+			chrome.runtime.sendMessage({
+				action: 'preset-already-choosen',
+				tabId: currentTabId,
+				foundTabId
+			})
+			return
+		}
 		setCurrentPresetId(presetId)
 		const newPreset = globalSettings.presets[presetId]
 		setSettings(newPreset)
-
 		const updatedGlobalSettings = {
 			...globalSettings,
 			tabPresetMapping: {
@@ -187,46 +223,46 @@ function App() {
 						onChange={handlePresetChange}
 					/>
 					<Tabs
-					value={curTab}
-					onChange={(value) => {
-						if (value) {
-							updateSettings({ ...settings, lastTab: value })
-						}
-					}}>
-					<Tabs.List>
-						<Tabs.Tab value='refresh'>Auto Refresh</Tabs.Tab>
-						<Tabs.Tab value='keywords'>Keywords</Tabs.Tab>
-						<Tabs.Tab value='clicker'>Auto Clicker</Tabs.Tab>
-					</Tabs.List>
-
-					<Tabs.Panel value='refresh' pt='md'>
-						<AutoRefreshTab
-							settings={settings.autoRefresh}
-							onSettingsChange={(autoRefresh) =>
-								updateSettings({ ...settings, autoRefresh })
+						value={curTab}
+						onChange={(value) => {
+							if (value) {
+								updateSettings({ ...settings, lastTab: value })
 							}
-							onToggleStart={handleToggleStart}
-						/>
-					</Tabs.Panel>
+						}}>
+						<Tabs.List>
+							<Tabs.Tab value='refresh'>Auto Refresh</Tabs.Tab>
+							<Tabs.Tab value='keywords'>Keywords</Tabs.Tab>
+							<Tabs.Tab value='clicker'>Auto Clicker</Tabs.Tab>
+						</Tabs.List>
 
-					<Tabs.Panel value='keywords' pt='md'>
-						<KeywordsTab
-							settings={settings.keywords}
-							onSettingsChange={(keywords) =>
-								updateSettings({ ...settings, keywords })
-							}
-						/>
-					</Tabs.Panel>
+						<Tabs.Panel value='refresh' pt='md'>
+							<AutoRefreshTab
+								settings={settings.autoRefresh}
+								onSettingsChange={(autoRefresh) =>
+									updateSettings({ ...settings, autoRefresh })
+								}
+								onToggleStart={handleToggleStart}
+							/>
+						</Tabs.Panel>
 
-					<Tabs.Panel value='clicker' pt='md'>
-						<AutoClickerTab
-							settings={settings.autoClicker}
-							onSettingsChange={(autoClicker) =>
-								updateSettings({ ...settings, autoClicker })
-							}
-						/>
-					</Tabs.Panel>
-				</Tabs>
+						<Tabs.Panel value='keywords' pt='md'>
+							<KeywordsTab
+								settings={settings.keywords}
+								onSettingsChange={(keywords) =>
+									updateSettings({ ...settings, keywords })
+								}
+							/>
+						</Tabs.Panel>
+
+						<Tabs.Panel value='clicker' pt='md'>
+							<AutoClickerTab
+								settings={settings.autoClicker}
+								onSettingsChange={(autoClicker) =>
+									updateSettings({ ...settings, autoClicker })
+								}
+							/>
+						</Tabs.Panel>
+					</Tabs>
 				</Stack>
 			</Container>
 		</MantineProvider>

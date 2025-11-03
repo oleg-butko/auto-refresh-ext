@@ -1,6 +1,3 @@
-// chrome.action.setBadgeText({ text: badgeText })
-// chrome.action.setBadgeBackgroundColor({ color: '#666' })
-// chrome.action.setTitle({ title: '✔ ' + String(knownWordsCount) })
 import { PresetSettings, GlobalSettings } from './types'
 
 interface TabTimerData {
@@ -11,7 +8,8 @@ interface TabTimerData {
 
 const tabTimerData = new Map<number, TabTimerData>()
 
-chrome.action.setBadgeBackgroundColor({ color: '#777' })
+chrome.action.setBadgeBackgroundColor({ color: '#555' })
+chrome.action.setTitle({ title: 'Auto refresh' })
 
 interface RefreshTimer {
 	tabId: number
@@ -23,7 +21,10 @@ const activeTimers = new Map<number, RefreshTimer>()
 
 // common
 //
-const updatePresetInGlobalSettings = (presetId: string, newSettings: PresetSettings) => {
+const updatePresetInGlobalSettings = (
+	presetId: string,
+	newSettings: PresetSettings
+) => {
 	chrome.storage.local.get('globalSettings', (result) => {
 		if (result.globalSettings) {
 			const updatedGlobalSettings: GlobalSettings = {
@@ -73,7 +74,7 @@ const bringForward = async (tabId: number) => {
 		// await chrome.tabs.update(tab.id, { active: true })
 		await chrome.tabs.update(tabId, { active: true })
 		await chrome.windows.update(foundByTabId.windowId, { focused: true })
-	}, 5000)
+	}, 200)
 }
 /**
  * @param soundItem - None/Default/URL
@@ -117,10 +118,12 @@ function scheduleRefresh(tabId: number, settings: PresetSettings) {
 		presetId: settings.presetId
 	})
 
-	updateBadgeForTab(tabId)
+	updateBadgeForTab(tabId, 0)
 
 	if (limit && numRefreshCalled && numRefreshCalled >= limit) {
-		console.log('numRefreshCalled >= limit -> updateSettings -> isRunning: false')
+		console.log(
+			'numRefreshCalled >= limit -> updateSettings -> isRunning: false'
+		)
 		const updatedSettings = {
 			...settings,
 			autoRefresh: {
@@ -145,7 +148,7 @@ function scheduleRefresh(tabId: number, settings: PresetSettings) {
 				return
 			}
 			tabTimerData.set(tabId, data)
-			updateBadgeForTab(tabId)
+			updateBadgeForTab(tabId, -1)
 		}, 1000)
 
 		timerData.intervalId = intervalId
@@ -182,18 +185,37 @@ function clearRefreshTimer(tabId: number) {
 	}
 }
 
-function updateBadgeForTab(tabId: number) {
+function updateBadgeForTab(tabId: number, foundPresetNum: number) {
 	chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+		if (foundPresetNum === 0) {
+			chrome.action.setBadgeText({ text: '' })
+			chrome.action.setIcon({
+				path: { 128: chrome.runtime.getURL('icon.png') }
+			})
+			return
+		}
 		if (tabs[0]?.id === tabId) {
 			const timerData = tabTimerData.get(tabId)
+			if (!timerData) {
+				chrome.action.setBadgeText({ text: `${foundPresetNum}` })
+				return
+			}
+			// console.log(`timerData ${timerData.presetId}`)
+			const nPreset = timerData.presetId.split('_')[1]
+			console.log(`nPreset ${nPreset}`)
 			if (timerData) {
-				chrome.action.setBadgeText({ text: `${timerData.counter}` })
+				chrome.action.setBadgeText({
+					text: `${nPreset} ${timerData.counter}`
+				})
 			}
 		}
 	})
 }
 
-function getPresetForTab(tabId: number, globalSettings: GlobalSettings): PresetSettings | null {
+function getPresetForTab(
+	tabId: number,
+	globalSettings: GlobalSettings
+): PresetSettings | null {
 	const presetId = globalSettings.tabPresetMapping[tabId] || 'preset_1'
 	return globalSettings.presets[presetId] || null
 }
@@ -204,7 +226,6 @@ function getPresetForTab(tabId: number, globalSettings: GlobalSettings): PresetS
 // chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
 chrome.runtime.onMessage.addListener((message) => {
 	console.log('message', message.action)
-	chrome.action.setTitle({ title: 'Auto refresh' })
 	if (message.action === 'start') {
 		const timerData = tabTimerData.get(message.tabId)
 		if (timerData) {
@@ -215,7 +236,6 @@ chrome.runtime.onMessage.addListener((message) => {
 		})
 		scheduleRefresh(message.tabId, message.settings)
 	} else if (message.action === 'stop') {
-		chrome.action.setTitle({ title: 'Auto refresh stopped' })
 		const timerData = tabTimerData.get(message.tabId)
 		if (timerData) {
 			clearInterval(timerData.intervalId)
@@ -228,32 +248,48 @@ chrome.runtime.onMessage.addListener((message) => {
 		chrome.action.setBadgeText({ text: '' })
 	} else if (message.action === 'setBadgeText') {
 		chrome.action.setBadgeText({ text: message.text })
+	} else if (message.action === 'preset-already-choosen') {
+		// tabId: currentTabId, foundTabId
+		setTimeout(() => {
+			bringForward(message.foundTabId)
+		}, 100)
 	} else if (message.action === 'preset-changed') {
+		if (message.presetId === 'none') {
+			updateBadgeForTab(message.tabId, 0)
+		} else {
+			const strPresetNum = message.presetId.split('_')[1]
+			updateBadgeForTab(message.tabId, parseInt(strPresetNum, 10))
+		}
 		const timer = activeTimers.get(message.tabId)
 		if (timer && timer.presetId !== message.presetId) {
 			clearRefreshTimer(message.tabId)
 			chrome.action.setIcon({
 				path: { 128: chrome.runtime.getURL('icon.png') }
 			})
-			chrome.action.setBadgeText({ text: '' })
+			// chrome.action.setBadgeText({ text: '' })
 		}
 	} else if (message.action === 'test') {
+		//
 	} else if (message.action === 'keywords-found') {
 		setTimeout(() => {
 			bringForward(message.tabId)
-		}, 1000)
+		}, 2000)
 		showNoti(message.foundKeywords)
 		console.log('Keywords found on the page')
-		chrome.action.setTitle({ title: '✔ found' })
 		chrome.action.setIcon({
 			path: { 128: chrome.runtime.getURL('icon.png') }
 		})
 		chrome.storage.local.get('globalSettings', (result) => {
 			if (result.globalSettings) {
-				const preset = getPresetForTab(message.tabId, result.globalSettings)
+				const preset = getPresetForTab(
+					message.tabId,
+					result.globalSettings
+				)
 				if (preset) {
 					setTimeout(() => {
-						playNotiSound(preset.keywords.selectedSoundItem || 'None')
+						playNotiSound(
+							preset.keywords.selectedSoundItem || 'None'
+						)
 					}, 500)
 					console.log('found -> updateSettings -> isRunning: false')
 					const updatedPreset = {
@@ -309,10 +345,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 		// console.log('Tab complete')
 		let sendingCheckKeywordsAndClickCounter = 0
 		const sendingCheckKeywordsAndClickIntervalId = setInterval(() => {
-			console.log(
-				'Tab: setInterval:',
-				sendingCheckKeywordsAndClickCounter
-			)
+			// console.log(
+			// 	'Tab: setInterval:',
+			// 	sendingCheckKeywordsAndClickCounter
+			// )
 			if (sendingCheckKeywordsAndClickCounter++ > 4) {
 				clearInterval(sendingCheckKeywordsAndClickIntervalId)
 			}
@@ -323,7 +359,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 						const timer = activeTimers.get(tabId)
 						if (
 							timer &&
-							(preset.keywords.enabled || preset.autoClicker.enabled)
+							(preset.keywords.enabled ||
+								preset.autoClicker.enabled)
 						) {
 							console.log('Tab: sending checkKeywordsAndClick')
 							chrome.tabs
@@ -353,8 +390,56 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 	}
 })
 
+const showCurrentPresetInBadge = (tabId: number) => {
+	chrome.storage.local.get('globalSettings', (result) => {
+		if (result.globalSettings) {
+			const tab2presets = Object.entries(
+				result.globalSettings.tabPresetMapping
+			)
+			let foundTabId = 0
+			let foundPresetNum = 0
+			let isRunning = false
+			for (const arr of tab2presets) {
+				if (arr[0] === `${tabId}`) {
+					foundTabId = tabId
+					const presetId = (arr as string[])[1]
+					isRunning =
+						result.globalSettings.presets[presetId].autoRefresh
+							.isRunning
+					const nPreset = presetId.split('_')[1]
+					foundPresetNum = parseInt(nPreset, 10)
+					break
+				}
+			}
+			if (foundTabId) {
+				updateBadgeForTab(tabId, foundPresetNum || 0)
+				if (isRunning) {
+					chrome.action.setIcon({
+						path: { 128: chrome.runtime.getURL('onstart.png') }
+					})
+				}
+			} else {
+				chrome.action.setIcon({
+					path: { 128: chrome.runtime.getURL('icon.png') }
+				})
+			}
+		}
+	})
+}
+
+let g_currentTabId = 0
+
+setInterval(() => {
+	if (g_currentTabId) {
+		showCurrentPresetInBadge(g_currentTabId)
+	}
+}, 1000)
+
 chrome.tabs.onActivated.addListener((activeInfo) => {
-	updateBadgeForTab(activeInfo.tabId)
+	// console.log(`tabs.onActivated: ${activeInfo.tabId}`)
+	g_currentTabId = activeInfo.tabId
+	showCurrentPresetInBadge(activeInfo.tabId)
+	updateBadgeForTab(activeInfo.tabId, 0)
 })
 
 const checkOffscreenDocumentExist = async (offscreenUrl: string) => {

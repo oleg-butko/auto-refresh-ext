@@ -44,11 +44,12 @@ export function AutoRefreshTab({
 			</Button>
 
 			<Stack gap='xs'>
-				<Group grow>
+				<Group miw={500} grow>
 					<Text size='sm'>
 						Limit number of refreshes (0 - no limit)
 					</Text>
 					<NumberInput
+						allowNegative={false}
 						maw={70}
 						value={settings.limit}
 						onChange={(value) =>
@@ -79,6 +80,7 @@ export function AutoRefreshTab({
 						</Text>
 
 						<NumberInput
+							allowNegative={false}
 							maw={70}
 							m={0}
 							p={0}
@@ -98,6 +100,7 @@ export function AutoRefreshTab({
 						</Text>
 
 						<NumberInput
+							allowNegative={false}
 							maw={70}
 							value={settings.randomMax}
 							onChange={(value) =>
@@ -120,6 +123,7 @@ export function AutoRefreshTab({
 						<Group>
 							<Radio value='fixed' label='Fixed Interval' />
 							<NumberInput
+								allowNegative={false}
 								maw={70}
 								value={settings.fixed}
 								onChange={(value) =>
