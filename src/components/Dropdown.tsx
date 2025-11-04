@@ -41,7 +41,7 @@ export function Dropdown({
 	const [disabledComboBox, setDisabledComboBox] = useState(disabled)
 	const combobox = useCombobox({ opened })
 	//
-	console.log('Dropdown disabled', disabled)
+	// console.log('Dropdown disabled', disabled)
 	const handleAddItem = () => {
 		if (inputValue.trim() && !arrValues.includes(inputValue.trim())) {
 			if (onNewValue(inputValue.trim())) {

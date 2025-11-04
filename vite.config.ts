@@ -5,6 +5,10 @@ import manifest from './manifest.json'
 
 export default defineConfig({
   // base: '/asd',
+  build: {
+    // https://github.com/crxjs/chrome-extension-tools/issues/573
+    minify: false,
+  },
 	plugins: [react(), crx({ manifest })],
 	optimizeDeps: {
 		exclude: ['lucide-react']

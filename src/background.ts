@@ -56,25 +56,33 @@ const showNoti = (foundKeywords: string[]) => {
 }
 //
 const bringForward = async (tabId: number) => {
-	// const [tab] = await chrome.tabs.query({
-	// 	active: true,
-	// 	currentWindow: true
-	// })
-	const tabs = await chrome.tabs.query({})
-	console.log('tabs', tabs)
-	const foundByTabId = tabs.filter((tabitem) => {
-		// if (tabitem.id == tab.id) {
-		if (tabitem.id == tabId) {
-			return true
-		}
-	})[0]
-	console.log('foundByTabId', foundByTabId)
-	// console.log('tab', tab.id, tab.windowId)
-	setTimeout(async () => {
-		// await chrome.tabs.update(tab.id, { active: true })
-		await chrome.tabs.update(tabId, { active: true })
-		await chrome.windows.update(foundByTabId.windowId, { focused: true })
-	}, 200)
+	try {
+		const tabs = await chrome.tabs.query({})
+		console.log('tabs', tabs)
+		const foundByTabId = tabs.filter((tabitem) => {
+			// if (tabitem.id == tab.id) {
+			if (tabitem.id == tabId) {
+				return true
+			}
+		})[0]
+		console.log('foundByTabId', foundByTabId)
+		// console.log('tab', tab.id, tab.windowId)
+		setTimeout(async () => {
+			// await chrome.tabs.update(tab.id, { active: true })
+			try {
+				await chrome.tabs.update(tabId, { active: true })
+				await chrome.windows.update(foundByTabId.windowId, {
+					focused: true
+				})
+			} catch (error) {
+				console.error('Error bringing tab to front(1):', error)
+				debugger
+			}
+		}, 200)
+	} catch (error) {
+		console.error('Error bringing tab to front(2):', error)
+		debugger
+	}
 }
 /**
  * @param soundItem - None/Default/URL
@@ -197,7 +205,8 @@ function updateBadgeForTab(tabId: number, foundPresetNum: number) {
 		if (tabs[0]?.id === tabId) {
 			const timerData = tabTimerData.get(tabId)
 			if (!timerData) {
-				chrome.action.setBadgeText({ text: `${foundPresetNum}` })
+				// chrome.action.setBadgeText({ text: `${foundPresetNum}` })
+				chrome.action.setBadgeText({ text: '' })
 				return
 			}
 			// console.log(`timerData ${timerData.presetId}`)
@@ -205,7 +214,8 @@ function updateBadgeForTab(tabId: number, foundPresetNum: number) {
 			console.log(`nPreset ${nPreset}`)
 			if (timerData) {
 				chrome.action.setBadgeText({
-					text: `${nPreset} ${timerData.counter}`
+					text: `${timerData.counter}`
+					// text: `${nPreset} ${timerData.counter}`
 				})
 			}
 		}
@@ -494,6 +504,43 @@ const playAudio = async (audio: string) => {
 		data: { audio, volume }
 	})
 }
+
+function clearTabsPresetMapping() {
+	chrome.storage.local.get('globalSettings', (result) => {
+		if (result.globalSettings) {
+			if (result.globalSettings.presets) {
+				for (const k of Object.keys(result.globalSettings.presets)) {
+					const preset = result.globalSettings.presets[k]
+					if (preset?.autoRefresh?.isRunning) {
+						preset.autoRefresh.isRunning = false
+						debugger
+					}
+				}
+			}
+			const updatedGlobalSettings: GlobalSettings = {
+				...result.globalSettings,
+				tabPresetMapping: {}
+			}
+			chrome.storage.local.set({
+				globalSettings: updatedGlobalSettings
+			})
+		}
+	})
+}
+
+chrome.runtime.onInstalled.addListener((details) => {
+	console.log('onInstalled', JSON.stringify(details, null, 2))
+
+	if (details.reason === 'update') {
+		clearTabsPresetMapping()
+	}
+	if (details.reason === 'install') {
+		// first install of new version
+		debugger
+	}
+})
+
+clearTabsPresetMapping()
 
 // setTimeout(async () => {
 // 	console.log('playAudio')

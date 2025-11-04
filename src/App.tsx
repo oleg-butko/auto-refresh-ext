@@ -147,28 +147,41 @@ function App() {
 		chrome.storage.local.set({ globalSettings: updatedGlobalSettings })
 	}
 
-	const handlePresetChange = (presetId: string) => {
+	const handlePresetChange = async (presetId: string) => {
 		// globalSettings.tabPresetMapping: {
 		//     [currentTabId]: presetId
 		// const tabIds = Object.keys(globalSettings.tabPresetMapping)
 		// const presets = Object.values(globalSettings.tabPresetMapping)
-		let foundTabId = 0
+		let foundTabIdInSettings = 0
 		if (presetId !== 'none') {
 			const tab2presets = Object.entries(globalSettings.tabPresetMapping)
 			for (const arr of tab2presets) {
 				if (arr[1] === presetId) {
-					foundTabId = parseInt(arr[0], 10)
+					foundTabIdInSettings = parseInt(arr[0], 10)
 					break
 				}
 			}
 		}
-		if (foundTabId) {
-			chrome.runtime.sendMessage({
-				action: 'preset-already-choosen',
-				tabId: currentTabId,
-				foundTabId
-			})
-			return
+		if (foundTabIdInSettings) {
+			const tabs = await chrome.tabs.query({})
+			// console.log('tabs', tabs)
+			const foundInExistingTabs = tabs.filter((tabitem) => {
+				if (tabitem.id == foundTabIdInSettings) {
+					debugger
+					return true
+				}
+			})[0]
+
+			if (foundInExistingTabs && foundInExistingTabs.id) {
+				chrome.runtime.sendMessage({
+					action: 'preset-already-choosen',
+					tabId: currentTabId,
+					foundTabId: foundInExistingTabs.id
+				})
+				return
+			} else {
+				debugger
+			}
 		}
 		setCurrentPresetId(presetId)
 		const newPreset = globalSettings.presets[presetId]
@@ -216,53 +229,71 @@ function App() {
 
 	return (
 		<MantineProvider>
-			<Container size='sm' p='md' style={{ width: 400 }}>
+			<Container size='sm' p='md' mih={300} style={{ width: 400 }}>
 				<Stack gap='md'>
 					<PresetsSelector
 						value={currentPresetId}
 						onChange={handlePresetChange}
 					/>
-					<Tabs
-						value={curTab}
-						onChange={(value) => {
-							if (value) {
-								updateSettings({ ...settings, lastTab: value })
-							}
-						}}>
-						<Tabs.List>
-							<Tabs.Tab value='refresh'>Auto Refresh</Tabs.Tab>
-							<Tabs.Tab value='keywords'>Keywords</Tabs.Tab>
-							<Tabs.Tab value='clicker'>Auto Clicker</Tabs.Tab>
-						</Tabs.List>
-
-						<Tabs.Panel value='refresh' pt='md'>
-							<AutoRefreshTab
-								settings={settings.autoRefresh}
-								onSettingsChange={(autoRefresh) =>
-									updateSettings({ ...settings, autoRefresh })
+					{currentPresetId !== 'none' && (
+						<Tabs
+							value={curTab}
+							onChange={(value) => {
+								if (value) {
+									updateSettings({
+										...settings,
+										lastTab: value
+									})
 								}
-								onToggleStart={handleToggleStart}
-							/>
-						</Tabs.Panel>
+							}}>
+							<Tabs.List>
+								<Tabs.Tab value='refresh'>
+									Auto Refresh
+								</Tabs.Tab>
+								<Tabs.Tab value='keywords'>Keywords</Tabs.Tab>
+								<Tabs.Tab value='clicker'>
+									Auto Clicker
+								</Tabs.Tab>
+							</Tabs.List>
 
-						<Tabs.Panel value='keywords' pt='md'>
-							<KeywordsTab
-								settings={settings.keywords}
-								onSettingsChange={(keywords) =>
-									updateSettings({ ...settings, keywords })
-								}
-							/>
-						</Tabs.Panel>
+							<Tabs.Panel value='refresh' pt='md'>
+								<AutoRefreshTab
+									settings={settings.autoRefresh}
+									onSettingsChange={(autoRefresh) =>
+										updateSettings({
+											...settings,
+											autoRefresh
+										})
+									}
+									onToggleStart={handleToggleStart}
+								/>
+							</Tabs.Panel>
 
-						<Tabs.Panel value='clicker' pt='md'>
-							<AutoClickerTab
-								settings={settings.autoClicker}
-								onSettingsChange={(autoClicker) =>
-									updateSettings({ ...settings, autoClicker })
-								}
-							/>
-						</Tabs.Panel>
-					</Tabs>
+							<Tabs.Panel value='keywords' pt='md'>
+								<KeywordsTab
+									settings={settings.keywords}
+									onSettingsChange={(keywords) =>
+										updateSettings({
+											...settings,
+											keywords
+										})
+									}
+								/>
+							</Tabs.Panel>
+
+							<Tabs.Panel value='clicker' pt='md'>
+								<AutoClickerTab
+									settings={settings.autoClicker}
+									onSettingsChange={(autoClicker) =>
+										updateSettings({
+											...settings,
+											autoClicker
+										})
+									}
+								/>
+							</Tabs.Panel>
+						</Tabs>
+					)}
 				</Stack>
 			</Container>
 		</MantineProvider>
